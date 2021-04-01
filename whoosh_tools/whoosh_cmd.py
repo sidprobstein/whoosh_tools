@@ -25,8 +25,7 @@ def main(argv):
     parser.add_argument('target', help="path to one or more text files to index, or the search query to execute")
     parser.add_argument('-c', '--collection', default='default.idx', help="name of the collection, optional")
     parser.add_argument('-i', '--index', action='store_true', help="index content")
-    parser.add_argument('-d', '--debug', action='store_true', help="provide debugging information")
-    parser.add_argument('-e', '--explain', action='store_true', help="show explanation after classifying")    
+    parser.add_argument('-v', '--verbose', action='store_true', help="provide debugging information")
     args = parser.parse_args()
     
     # to do: for now this is the only schema we support
@@ -37,14 +36,63 @@ def main(argv):
         # create collection if it does not exist
         if not os.path.isdir(args.collection):
             os.mkdir(args.collection)
+        if args.verbose:
+            print("Info: collection:", args.collection)
         ix = create_in(args.collection, schema)
         writer = ix.writer()
-        # to do: read the docs
-        writer.add_document(title=u"First document", path=u"/a",
-                        content=u"This is the first document we've added!")
-        writer.add_document(title=u"Second document", path=u"/b",
-                        content=u"The second one is even more interesting!")
+        # read specified files
+        lst_files = glob.glob(args.target)
+        for f in lst_files:
+            if os.path.exists(f):
+                if args.verbose:
+                    print("Info: reading:", f)
+                # open teh file
+                try:
+                    fi = open(f, 'r')
+                except e:
+                    print("Error:", e)
+                    sys.exit(1)
+                # end if
+            else:
+                print("Warning: file not found:", f)
+                continue
+            # end if
+            if f.endswith(".csv"):
+                # read csv
+                n_rows = 0
+                csv_reader = csv.reader(fi)   
+                lst_row = csv_reader.next()
+                for lst_row in csv_reader:
+                    fi_title = lst_row[0]
+                    fi_path = os.getcwd() + '/' + lst_row[1]
+                    fi_content = lst_row[2]
+                    n_rows = n_rows + 1
+                    # index
+                    # to do: batch the records
+                    writer.add_document(title=fi_title, path=fi_path, content=fi_content)
+                # end for
+                if args.verbose:
+                    print("Info: added", n_rows, "rows to collection")
+                fi.close()
+            else:
+                # read file
+                fi_content = fi.readlines()
+                if args.verbose:
+                    print("Debug:", fi_content)
+                fi.close()
+                fi_title = f
+                fi_path = "a"
+                # index
+                # to do: batch the files
+                writer.add_document(title=fi_title, path=fi_path, content=fi_content)
+                if args.verbose:
+                    print("Info: added file:", f, "to collection")
+            # end if
+        # end for
+        # commit changes
         writer.commit()
+        if args.verbose:
+            print("Info: Commit()")
     else:   
         if not os.path.isdir(args.collection):
             print("Error: collection not found:", args.collection)
