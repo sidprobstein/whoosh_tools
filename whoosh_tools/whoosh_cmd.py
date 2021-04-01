@@ -76,12 +76,14 @@ def main(argv):
                 fi.close()
             else:
                 # read file
-                fi_content = fi.readlines()
-                if args.verbose:
-                    print("Debug:", fi_content)
+                fi_list = fi.readlines()
+                # join the file
+                fi_content = ''.join(fi_list)
+                # if args.verbose:
+                #     print("Debug:", fi_content)
                 fi.close()
                 fi_title = f
-                fi_path = "a"
+                fi_path = os.getcwd() + '/' + f
                 # index
                 # to do: batch the files
                 writer.add_document(title=fi_title, path=fi_path, content=fi_content)
@@ -102,8 +104,8 @@ def main(argv):
         # query index
         with ix.searcher() as searcher:
             print("target:", args.target)
-            query = QueryParser("content", ix.schema).parse(args.target)
-            results = searcher.search(query)
+            q = QueryParser("content", ix.schema).parse(args.target)
+            results = searcher.search(q)
             print(results[0])
         # end with
     # end if
