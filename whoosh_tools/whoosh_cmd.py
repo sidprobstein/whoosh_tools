@@ -10,6 +10,8 @@ import argparse
 import sys
 import glob
 import os
+import csv
+import time
 
 from whoosh.index import create_in, open_dir
 from whoosh.fields import *
@@ -25,6 +27,7 @@ def main(argv):
     parser.add_argument('target', help="path to one or more text files to index, or the search query to execute")
     parser.add_argument('-c', '--collection', default='default.idx', help="name of the collection, optional")
     parser.add_argument('-i', '--index', action='store_true', help="index content")
+    parser.add_argument('-t', '--time', action='store_true', help="time indexing")
     parser.add_argument('-v', '--verbose', action='store_true', help="provide debugging information")
     args = parser.parse_args()
     
@@ -39,7 +42,7 @@ def main(argv):
         if args.verbose:
             print("Info: collection:", args.collection)
         ix = create_in(args.collection, schema)
-        writer = ix.writer()
+        writer = ix.writer(limitmb=512, procs=6, multisegment=True)
         # read specified files
         lst_files = glob.glob(args.target)
         for f in lst_files:
@@ -61,7 +64,9 @@ def main(argv):
                 # read csv
                 n_rows = 0
                 csv_reader = csv.reader(fi)   
-                lst_row = csv_reader.next()
+                lst_row = next(csv_reader)
+                if args.time:
+                    start_time = time.time()
                 for lst_row in csv_reader:
                     fi_title = lst_row[0]
                     fi_path = os.getcwd() + '/' + lst_row[1]
@@ -93,8 +98,11 @@ def main(argv):
         # end for
         # commit changes
         writer.commit()
+        if args.time:
+            end_time = time.time()
+            print("Info: indexing time", str(end_time - start_time))
         if args.verbose:
-            print("Info: Commit()")
+            print("Info: commit()")
     else:   
         if not os.path.isdir(args.collection):
             print("Error: collection not found:", args.collection)
